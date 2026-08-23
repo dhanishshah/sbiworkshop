@@ -164,11 +164,11 @@
   .mini-row b{color:var(--cyan-deep);flex:none}
 
   /* ============ BOARD ============ */
-  .board{padding:30px 40px 100px;min-height:100vh;display:flex;flex-direction:column}
+  .board{padding:20px 36px 14px;height:100vh;overflow:hidden;display:flex;flex-direction:column;box-sizing:border-box}
   .board-grid{flex:1;display:grid;grid-template-columns:clamp(300px,27vw,480px) 1fr;gap:46px;align-items:stretch}
   .qr-col{display:flex;flex-direction:column;align-items:center;justify-content:center}
-  .board-title .brand{margin-bottom:10px}
-  .board-title h1{font-size:clamp(24px,2.9vw,42px);margin-bottom:6px}
+  .board-title .brand{margin-bottom:6px}
+  .board-title h1{font-size:clamp(22px,2.3vw,36px);margin-bottom:2px}
   .qrbox{
     width:100%;background:#fff;border:1px solid var(--line);border-radius:22px;padding:22px;text-align:center;
     box-shadow:0 14px 40px -14px rgba(41,32,117,.3);
@@ -184,27 +184,27 @@
   .qr-setup input:focus{border-color:var(--cyan)}
   .qr-setup button{width:100%;padding:12px;border-radius:10px;background:var(--indigo);color:#fff;font-weight:700;font-size:13px}
 
-  .main-col{display:flex;flex-direction:column;min-width:0}
-  .lb{flex:1;margin-top:22px;display:flex;gap:16px;align-items:stretch;--rowH:clamp(74px,10.2vh,104px)}
-  .rank-rail{display:flex;flex-direction:column;gap:14px;justify-content:center}
+  .main-col{display:flex;flex-direction:column;min-width:0;min-height:0}
+  .lb{flex:1;min-height:0;margin-top:12px;display:flex;gap:14px;align-items:stretch;--gap:clamp(7px,1.3vh,13px)}
+  .rank-rail{display:flex;flex-direction:column;gap:var(--gap);justify-content:stretch}
   .rank-cell{
-    height:var(--rowH);width:44px;display:flex;align-items:center;justify-content:center;
-    font-weight:700;color:#AAB4CC;font-size:clamp(17px,1.9vw,26px);font-variant-numeric:tabular-nums;
+    flex:1 1 0;min-height:0;max-height:108px;width:44px;display:flex;align-items:center;justify-content:center;
+    font-weight:700;color:#AAB4CC;font-size:clamp(16px,1.8vw,25px);font-variant-numeric:tabular-nums;
   }
   .rank-cell.gold{color:var(--gold)}
-  .cards-col{flex:1;display:flex;flex-direction:column;gap:14px;justify-content:center;min-width:0}
+  .cards-col{flex:1;display:flex;flex-direction:column;gap:var(--gap);justify-content:stretch;min-width:0}
   .lb-row{
-    height:var(--rowH);display:grid;grid-template-columns:1fr 150px;gap:16px;align-items:center;
-    background:#fff;border:1px solid var(--line);border-radius:16px;padding:10px 18px;
+    flex:1 1 0;min-height:0;max-height:108px;display:grid;grid-template-columns:1fr 150px;gap:16px;align-items:center;
+    background:#fff;border:1px solid var(--line);border-radius:15px;padding:6px 18px;
     box-shadow:0 5px 16px -10px rgba(41,32,117,.22);will-change:transform;
     transition:border-color .3s;
   }
   .lb-row.first{border-color:var(--gold)}
-  .bar-label{font-size:clamp(13px,1.35vw,18px);margin-bottom:7px;display:flex;gap:10px;align-items:center;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .bar-label{font-size:clamp(12px,1.25vw,17px);margin-bottom:5px;display:flex;gap:10px;align-items:center;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
   .bar-label > span:last-child{overflow:hidden;text-overflow:ellipsis}
   .bar-label b{color:var(--indigo)}
   .crown{font-size:15px}
-  .bar-track{height:clamp(18px,2.4vh,26px);background:#E4EAF5;border-radius:8px;overflow:hidden}
+  .bar-track{height:clamp(11px,2vh,22px);background:#E4EAF5;border-radius:7px;overflow:hidden}
   .bar-fill{
     height:100%;border-radius:8px;width:0%;
     background:linear-gradient(90deg,var(--cyan),var(--indigo));
@@ -223,16 +223,16 @@
   .lb-row.gain .bar-fill{box-shadow:0 0 26px 2px var(--glow)}
   .lb-row.first.gain .bar-fill{box-shadow:0 0 26px 2px rgba(217,166,46,.6)}
   .lb-val{text-align:right;font-variant-numeric:tabular-nums}
-  .lb-val .money{font-size:clamp(17px,2vw,27px);font-weight:700;color:var(--indigo)}
-  .lb-val .pct{font-size:12px;color:var(--muted)}
+  .lb-val .money{font-size:clamp(15px,1.7vw,23px);font-weight:700;color:var(--indigo)}
+  .lb-val .pct{font-size:11px;color:var(--muted)}
 
-  .ticker{margin:20px -46px 0;border-top:1px solid var(--line);padding:11px 0;overflow:hidden;white-space:nowrap;background:rgba(255,255,255,.6)}
+  .ticker{flex:none;margin:12px -36px 0;border-top:1px solid var(--line);padding:11px 0;overflow:hidden;white-space:nowrap;background:rgba(255,255,255,.6)}
   .ticker-inner{display:inline-block;animation:tick 30s linear infinite;color:var(--muted);font-size:14px}
   .ticker-inner b{color:var(--cyan-deep)}
   .ticker-inner .sep{margin:0 22px;color:var(--line)}
   @keyframes tick{0%{transform:translateX(100vw)}100%{transform:translateX(-100%)}}
 
-  .board-foot{display:flex;justify-content:space-between;align-items:center;padding-top:8px}
+  .board-foot{flex:none;display:flex;justify-content:space-between;align-items:center;padding-top:6px}
   .foot-note{color:#98A2BC;font-size:12px}
   .ghost-btn{background:transparent;border:1px solid var(--line);color:var(--muted);padding:7px 14px;border-radius:9px;font-size:12px}
   .ghost-btn:hover{border-color:var(--red);color:var(--red)}
@@ -275,7 +275,7 @@
   .toast.show{opacity:1}
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
   @media (max-width:760px){
-    .board{padding:22px 18px 110px}
+    .board{padding:22px 18px;height:auto;overflow:visible}
     .board-grid{grid-template-columns:1fr;gap:20px}
     .qr-col{order:-1}
     .qrbox{max-width:300px}
@@ -2768,9 +2768,10 @@ function successSound(){
 }
 
 /* ---------- routing & session config (everything lives in the URL) ---------- */
+const DEFAULT_DB = "https://workshop-5896a-default-rtdb.asia-southeast1.firebasedatabase.app";
 const params = new URLSearchParams(location.search);
 const isBoard = params.get("view") === "board";
-const DB = (params.get("db") || "").trim().replace(/\/+$/,"");
+const DB = ((params.get("db") || DEFAULT_DB).trim()).replace(/\/+$/,"");
 const votesUrl = () => DB + "/votes.json";
 
 if (isBoard) {
@@ -3107,7 +3108,8 @@ function cleanDb(raw){
 function participantUrl(){
   const u = new URL(location.href);
   u.searchParams.delete("view");
-  u.searchParams.set("db", DB);
+  if (DB === DEFAULT_DB) u.searchParams.delete("db");
+  else u.searchParams.set("db", DB);
   return u.toString();
 }
 function drawQr(url){
