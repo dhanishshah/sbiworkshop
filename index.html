@@ -266,6 +266,21 @@
   .fr-row b{margin-left:auto;color:var(--indigo);font-variant-numeric:tabular-nums;flex:none}
   .fr-row .fr-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .fin-back{margin-top:22px;background:transparent;border:1px solid var(--line);color:var(--muted);padding:9px 18px;border-radius:10px;font-size:13px}
+  /* ---- L2 ideas phase ---- */
+  .win-chip{display:inline-block;background:#FFF6E0;border:1px solid #EAD9A8;color:#A87F1E;font-weight:700;font-size:12px;padding:6px 12px;border-radius:999px;margin-bottom:10px}
+  #ideasScreen h1{font-size:22px;line-height:1.25}
+  .ideas-q{color:var(--muted);font-size:14px;line-height:1.5;margin:12px 0 4px}
+  .idea-btn{width:100%;margin-top:10px;padding:16px;border-radius:16px;font-size:16px;font-weight:700;background:linear-gradient(100deg,var(--cyan) 0%,var(--indigo) 120%);color:#fff;box-shadow:0 10px 26px -10px rgba(41,32,117,.45);transition:transform .1s}
+  .idea-btn:active{transform:scale(.98)}
+  .my-idea{background:#fff;border:1px solid var(--line);border-radius:11px;padding:10px 13px;font-size:13px;margin-top:8px;color:var(--text);animation:rise .35s cubic-bezier(.2,1.2,.35,1)}
+  .ideas-board{flex:1;display:flex;flex-direction:column;min-height:0;text-align:center;align-items:center}
+  .ib-sub{color:var(--muted);font-size:clamp(13px,1.2vw,17px);margin-top:4px}
+  .cloud{flex:1;min-height:0;width:100%;display:flex;flex-wrap:wrap;gap:clamp(10px,1.6vw,26px) clamp(14px,2.2vw,34px);align-items:center;justify-content:center;align-content:center;padding:12px 5vw;overflow:hidden}
+  .cloud span{font-weight:700;line-height:1.05;white-space:nowrap;display:inline-block}
+  .cloud span.grow{animation:cloudpop .55s cubic-bezier(.2,1.5,.4,1)}
+  @keyframes cloudpop{45%{transform:scale(1.22)}}
+  .cloud-empty{color:#AAB4CC;font-size:clamp(15px,1.5vw,22px)}
+  .fin-next{margin-top:22px;margin-left:10px;background:linear-gradient(100deg,var(--cyan),var(--indigo));color:#fff;border:none;padding:10px 20px;border-radius:10px;font-weight:700;font-size:13px}
   .toast{
     position:fixed;bottom:100px;left:50%;transform:translateX(-50%);
     background:var(--red);color:#fff;padding:12px 18px;border-radius:11px;font-size:14px;
@@ -310,6 +325,16 @@
     <div class="submitbar" id="submitBar">
       <button class="submit-btn" id="submitBtn">Invest 📈</button>
     </div>
+  </div>
+
+  <div class="wrap hidden" id="ideasScreen">
+    <div class="brand"><div class="brand-mark"></div><div class="brand-name">SBI Mutual Fund</div></div>
+    <div class="win-chip">🏆 The room chose</div>
+    <h1 id="ideasWinner"></h1>
+    <p class="ideas-q">Now the L2: What use cases or agent interventions do you imagine here? Add them one at a time — a word or two each, up to 5.</p>
+    <input class="namefield" id="ideaInput" maxlength="40" placeholder="e.g. RFP drafting agent">
+    <button class="idea-btn" id="ideaBtn">Add idea 💡</button>
+    <div id="myIdeas"></div>
   </div>
 
   <div class="done hidden" id="doneScreen">
@@ -371,7 +396,18 @@
         <div class="pod pod-3" id="pod3"><div class="medal">🥉</div><div class="p-name" id="pod3name"></div><div class="p-amt" id="pod3amt">$0</div><div class="block"></div></div>
       </div>
       <div class="fin-rest" id="finRest"></div>
-      <button class="fin-back" id="backBtn">← Back to live board</button>
+      <div>
+        <button class="fin-back" id="backBtn">← Back to live board</button>
+        <button class="fin-next" id="toIdeasBtn">Next: Use-case wall →</button>
+      </div>
+    </div>
+
+    <div class="ideas-board hidden" id="ideasBoard">
+      <div class="brand" style="margin-top:4px"><div class="brand-mark"></div><div class="brand-name">SBI Mutual Fund · AI vision</div></div>
+      <h1 style="color:var(--indigo);font-size:clamp(22px,2.4vw,38px)" id="ibTitle"></h1>
+      <div class="ib-sub">Live from the room · <b id="ibCount">0</b> ideas</div>
+      <div class="cloud" id="cloud"><div class="cloud-empty">Waiting for the first idea from the phones…</div></div>
+      <button class="fin-back" id="backPodBtn" style="margin-bottom:6px">← Back to podium</button>
     </div>
 
     <div class="ticker" id="tickerBar"><div class="ticker-inner" id="tickerInner">Waiting for the first investment…</div></div>
@@ -2773,6 +2809,9 @@ const params = new URLSearchParams(location.search);
 const isBoard = params.get("view") === "board";
 const DB = ((params.get("db") || DEFAULT_DB).trim()).replace(/\/+$/,"");
 const votesUrl = () => DB + "/votes.json";
+const ideasUrl = () => DB + "/ideas.json";
+const stateUrl = () => DB + "/state.json";
+function setPhase(obj){ return fetch(stateUrl(), { method:"PUT", body: JSON.stringify(obj) }).catch(()=>{}); }
 
 if (isBoard) {
   $("participant").classList.add("hidden");
@@ -2894,7 +2933,51 @@ $("submitBtn").onclick = async () => {
   }
 };
 
+let phase = "vote", winnerIdx = null, votedDone = false, myIdeaCount = 0;
+function renderPhase(){
+  if (phase === "ideas"){
+    $("voteForm").classList.add("hidden");
+    $("doneScreen").classList.add("hidden");
+    $("ideasScreen").classList.remove("hidden");
+    $("ideasWinner").textContent = winnerIdx != null ? INITIATIVES[winnerIdx] : "";
+    window.scrollTo(0,0);
+  } else {
+    $("ideasScreen").classList.add("hidden");
+    if (votedDone) $("doneScreen").classList.remove("hidden");
+    else $("voteForm").classList.remove("hidden");
+  }
+}
+async function pollState(){
+  try{
+    const r = await fetch(stateUrl());
+    if (!r.ok) return;
+    const s = (await r.json()) || {};
+    const p = s.phase === "ideas" ? "ideas" : "vote";
+    if (typeof s.winner === "number") winnerIdx = s.winner;
+    if (p !== phase){ phase = p; renderPhase(); }
+    else if (phase === "ideas") $("ideasWinner").textContent = winnerIdx != null ? INITIATIVES[winnerIdx] : "";
+  }catch(e){}
+}
+$("ideaBtn").onclick = async ()=>{
+  const txt = ($("ideaInput").value||"").trim();
+  if (!txt){ toast("Type an idea first — a word or two is enough."); return; }
+  if (myIdeaCount >= 5){ toast("You've added 5 ideas — that's the cap!"); return; }
+  const btn = $("ideaBtn"); btn.disabled = true;
+  try{
+    const res = await fetch(ideasUrl(), { method:"POST", body: JSON.stringify({ text: txt.slice(0,40), ts: Date.now() }) });
+    if (!res.ok) throw new Error();
+    myIdeaCount++;
+    chingSound(); if (navigator.vibrate) navigator.vibrate(20);
+    $("ideaInput").value = "";
+    const d = document.createElement("div"); d.className = "my-idea"; d.textContent = "💡 " + txt;
+    $("myIdeas").prepend(d);
+    if (myIdeaCount >= 5) $("ideaBtn").textContent = "All 5 ideas in — nice! 🙌";
+  }catch(e){ toast("Couldn't send — tap again."); }
+  btn.disabled = false;
+};
+
 function showDone(vote){
+  votedDone = true;
   successSound();
   if (navigator.vibrate) navigator.vibrate([30,50,45]);
   const now = new Date();
@@ -3091,7 +3174,11 @@ $("resetBtn").onclick = async ()=>{
   try{
     const res = await fetch(votesUrl(), { method:"DELETE" });
     if (!res.ok) throw new Error();
+    await fetch(ideasUrl(), { method:"DELETE" }).catch(()=>{});
+    await setPhase({ phase:"vote" });
     seen.clear(); tickerItems=[]; $("tickerInner").textContent="Waiting for the first investment…";
+    ideaSeen.clear(); ideaAgg.clear(); prevLeader = null; finWinner = null;
+    $("ibCount").textContent = "0"; renderCloud();
     renderBoard();
   }catch(e){ toast("Reset failed — try again."); }
 };
@@ -3155,6 +3242,67 @@ if (isBoard){
   renderBoard();
 }
 
+/* ---------- L2 use-case wall ---------- */
+let finWinner = null, ideasTimer = null;
+const ideaSeen = new Set();
+const ideaAgg = new Map();      // normKey -> {count, label}
+let lastGrown = new Set();
+
+function normKey(t){
+  let k = String(t).toLowerCase().replace(/[^\p{L}\p{N} ]/gu,"").replace(/\s+/g," ").trim();
+  if (k.endsWith("s") && k.length > 3) k = k.slice(0,-1);
+  return k;
+}
+async function refreshIdeas(){
+  try{
+    const r = await fetch(ideasUrl());
+    if (!r.ok) return;
+    const data = (await r.json()) || {};
+    let fresh = 0; lastGrown = new Set();
+    for (const [k,v] of Object.entries(data)){
+      if (ideaSeen.has(k) || !v || !v.text) continue;
+      ideaSeen.add(k); fresh++;
+      const key = normKey(v.text); if (!key) continue;
+      const e = ideaAgg.get(key) || { count:0, label:String(v.text).trim() };
+      e.count++;
+      const t = String(v.text).trim();
+      if (t.length < e.label.length) e.label = t;   // prefer the tightest phrasing
+      ideaAgg.set(key, e);
+      lastGrown.add(key);
+    }
+    $("ibCount").textContent = ideaSeen.size;
+    if (fresh){ if (boardSoundOn) dingSound(); renderCloud(); }
+  }catch(e){}
+}
+function renderCloud(){
+  const entries = [...ideaAgg.entries()].sort((a,b)=> b[1].count - a[1].count);
+  if (!entries.length){ $("cloud").innerHTML = '<div class="cloud-empty">Waiting for the first idea from the phones…</div>'; return; }
+  const max = entries[0][1].count;
+  // center-out arrangement so the biggest themes sit in the middle
+  const arranged = [];
+  entries.forEach((e,i)=> i % 2 ? arranged.push(e) : arranged.unshift(e));
+  const colors = ["var(--indigo)","var(--cyan-deep)","#6B5CC9","#0E7FA8"];
+  $("cloud").innerHTML = arranged.map(([key,e])=>{
+    const rank = entries.findIndex(x=>x[0]===key);
+    const size = 17 + (e.count/max) * 46;                 // 17px .. 63px
+    const col = rank === 0 ? "var(--gold)" : colors[rank % colors.length];
+    const grow = lastGrown.has(key) ? " grow" : "";
+    return `<span class="${grow.trim()}" style="font-size:clamp(15px,${(size/12).toFixed(2)}vw,${Math.round(size*1.3)}px);color:${col}">${escapeHtml(e.label)}${e.count>1?` <small style="font-size:.55em;color:#AAB4CC">×${e.count}</small>`:""}</span>`;
+  }).join("");
+}
+$("toIdeasBtn").onclick = ()=>{
+  $("finale").classList.add("hidden");
+  $("ideasBoard").classList.remove("hidden");
+  $("ibTitle").textContent = finWinner != null ? `Use cases for “${INITIATIVES[finWinner]}”` : "Use cases from the room";
+  refreshIdeas();
+  if (!ideasTimer) ideasTimer = setInterval(refreshIdeas, 1500);
+};
+$("backPodBtn").onclick = ()=>{
+  if (ideasTimer){ clearInterval(ideasTimer); ideasTimer = null; }
+  $("ideasBoard").classList.add("hidden");
+  $("finale").classList.remove("hidden");
+};
+
 /* ---------- poll over: podium + celebration ---------- */
 $("endBtn").onclick = async ()=>{
   await refreshBoard();
@@ -3163,6 +3311,8 @@ $("endBtn").onclick = async ()=>{
   seen.forEach(v => v.alloc.forEach((a,i)=> totals[i]+=(+a||0)));
   const order = totals.map((t,i)=>({t,i})).sort((a,b)=>b.t-a.t || a.i-b.i);
 
+  finWinner = order[0].i;
+  setPhase({ phase:"ideas", winner: finWinner });
   const podDelay = { 1:1000, 2:550, 3:150 };   // matches the rise animation
   [1,2,3].forEach(p=>{
     const o = order[p-1];
@@ -3180,6 +3330,9 @@ $("endBtn").onclick = async ()=>{
   if (motionOK) setTimeout(confettiRain, 1150);
 };
 $("backBtn").onclick = ()=>{
+  setPhase({ phase:"vote" });
+  if (ideasTimer){ clearInterval(ideasTimer); ideasTimer = null; }
+  $("ideasBoard").classList.add("hidden");
   $("finale").classList.add("hidden");
   $("boardGrid").classList.remove("hidden");
   $("tickerBar").classList.remove("hidden");
@@ -3189,6 +3342,8 @@ $("backBtn").onclick = ()=>{
 
 if (!isBoard){
   renderCards(); renderCash(false);
+  pollState();
+  setInterval(pollState, 3000);
 }
 </script>
 </body>
