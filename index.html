@@ -2820,8 +2820,6 @@ if (isBoard) {
   $("participant").classList.add("hidden");
   $("boardView").classList.remove("hidden");
   $("viewToggle").textContent = "← Participant view";
-} else {
-  $("viewToggle").classList.add("hidden");   // participants never see presenter controls
 }
 $("viewToggle").onclick = () => {
   const u = new URL(location.href);
