@@ -276,8 +276,11 @@
   .ideas-board{flex:1;display:flex;flex-direction:column;min-height:0;text-align:center;align-items:center}
   .ib-sub{color:var(--muted);font-size:clamp(13px,1.2vw,17px);margin-top:4px}
   .cloud{flex:1;min-height:0;width:100%;display:flex;flex-wrap:wrap;gap:clamp(10px,1.6vw,26px) clamp(14px,2.2vw,34px);align-items:center;justify-content:center;align-content:center;padding:12px 5vw;overflow:hidden}
-  .cloud span{font-weight:700;line-height:1.05;white-space:nowrap;display:inline-block}
-  .cloud span.grow{animation:cloudpop .55s cubic-bezier(.2,1.5,.4,1)}
+  .theme{display:inline-flex;flex-direction:column;align-items:center;max-width:34vw}
+  .theme.grow{animation:cloudpop .55s cubic-bezier(.2,1.5,.4,1)}
+  .t-main{font-weight:700;line-height:1.08;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:34vw}
+  .t-main small{font-size:.5em;color:#AAB4CC;font-weight:700}
+  .t-subs{margin-top:3px;font-size:clamp(10px,.85vw,13px);color:#8A94B0;font-weight:600;max-width:30vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   @keyframes cloudpop{45%{transform:scale(1.22)}}
   .cloud-empty{color:#AAB4CC;font-size:clamp(15px,1.5vw,22px)}
   .fin-next{margin-top:22px;margin-left:10px;background:linear-gradient(100deg,var(--cyan),var(--indigo));color:#fff;border:none;padding:10px 20px;border-radius:10px;font-weight:700;font-size:13px}
@@ -331,7 +334,7 @@
     <div class="brand"><div class="brand-mark"></div><div class="brand-name">SBI Mutual Fund</div></div>
     <div class="win-chip">🏆 The room chose</div>
     <h1 id="ideasWinner"></h1>
-    <p class="ideas-q">Now the L2: What use cases or agent interventions do you imagine here? Add them one at a time — a word or two each, up to 5.</p>
+    <p class="ideas-q">What use cases or agent interventions do you imagine here? Add them one at a time — a few words each, up to 5.</p>
     <input class="namefield" id="ideaInput" maxlength="40" placeholder="e.g. RFP drafting agent">
     <button class="idea-btn" id="ideaBtn">Add idea 💡</button>
     <div id="myIdeas"></div>
@@ -405,7 +408,7 @@
     <div class="ideas-board hidden" id="ideasBoard">
       <div class="brand" style="margin-top:4px"><div class="brand-mark"></div><div class="brand-name">SBI Mutual Fund · AI vision</div></div>
       <h1 style="color:var(--indigo);font-size:clamp(22px,2.4vw,38px)" id="ibTitle"></h1>
-      <div class="ib-sub">Live from the room · <b id="ibCount">0</b> ideas</div>
+      <div class="ib-sub">Live from the room · <b id="ibCount">0</b> ideas · <span id="ibTheme">AI theming warming up…</span></div>
       <div class="cloud" id="cloud"><div class="cloud-empty">Waiting for the first idea from the phones…</div></div>
       <button class="fin-back" id="backPodBtn" style="margin-bottom:6px">← Back to podium</button>
     </div>
@@ -2817,6 +2820,8 @@ if (isBoard) {
   $("participant").classList.add("hidden");
   $("boardView").classList.remove("hidden");
   $("viewToggle").textContent = "← Participant view";
+} else {
+  $("viewToggle").classList.add("hidden");   // participants never see presenter controls
 }
 $("viewToggle").onclick = () => {
   const u = new URL(location.href);
@@ -3271,26 +3276,108 @@ async function refreshIdeas(){
       lastGrown.add(key);
     }
     $("ibCount").textContent = ideaSeen.size;
-    if (fresh){ if (boardSoundOn) dingSound(); renderCloud(); }
+    if (fresh){ if (boardSoundOn) dingSound(); reclusterAndRender(); }
   }catch(e){}
 }
-function renderCloud(){
-  const entries = [...ideaAgg.entries()].sort((a,b)=> b[1].count - a[1].count);
-  if (!entries.length){ $("cloud").innerHTML = '<div class="cloud-empty">Waiting for the first idea from the phones…</div>'; return; }
-  const max = entries[0][1].count;
-  // center-out arrangement so the biggest themes sit in the middle
+/* --- semantic theming: a small embedding model runs in THIS browser only --- */
+let embedder = null, embedStatus = "off";   // off | loading | on | basic
+const embCache = new Map();                  // normKey -> Float32Array
+const STOP = new Set(["the","and","for","with","using","use","our","via","into","from","of","to","in","a","an"]);
+
+function updateThemeBadge(){
+  const el = $("ibTheme"); if (!el) return;
+  el.textContent = embedStatus === "on" ? "AI theming on"
+                 : embedStatus === "loading" ? "AI theming warming up…"
+                 : "Word theming on";
+}
+async function initEmbedder(){
+  if (embedStatus === "on" || embedStatus === "loading") return;
+  embedStatus = "loading"; updateThemeBadge();
+  try{
+    const T = await import("https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js");
+    embedder = await T.pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2");
+    embedStatus = "on";
+  }catch(e){ embedStatus = "basic"; }
+  updateThemeBadge();
+  reclusterAndRender();
+}
+async function embedText(t){
+  const out = await embedder(t, { pooling:"mean", normalize:true });
+  return out.data;
+}
+function cosSim(a,b){ let s=0; for (let i=0;i<a.length;i++) s += a[i]*b[i]; return s; }
+function keyTokens(k){ return k.split(" ").filter(w => w.length > 2 && !STOP.has(w)); }
+function lexSim(a,b){
+  const A = new Set(keyTokens(a)), B = new Set(keyTokens(b));
+  if (!A.size || !B.size) return 0;
+  let inter = 0; A.forEach(t => { if (B.has(t)) inter++; });
+  return inter / Math.min(A.size, B.size);
+}
+async function buildClusters(){
+  const items = [...ideaAgg.entries()].map(([key,e]) => ({ key, count:e.count, label:e.label }));
+  if (embedStatus === "on"){
+    for (const it of items){
+      if (!embCache.has(it.key)){
+        try{ embCache.set(it.key, await embedText(it.label)); }catch(e){}
+      }
+    }
+  }
+  const clusters = [];
+  const useEmb = embedStatus === "on";
+  const TH = useEmb ? 0.68 : 0.5;
+  for (const it of items.sort((a,b)=> b.count - a.count)){
+    let best = null, bestS = 0;
+    for (const c of clusters){
+      let s = 0;
+      if (useEmb && embCache.has(it.key) && c.vec) s = cosSim(embCache.get(it.key), c.vec);
+      else s = lexSim(it.key, c.repKey);
+      if (s > bestS){ bestS = s; best = c; }
+    }
+    if (best && bestS >= TH){ best.items.push(it); best.total += it.count; }
+    else clusters.push({ items:[it], total:it.count, repKey:it.key, vec: embCache.get(it.key) || null });
+  }
+  clusters.forEach(c => {
+    c.items.sort((a,b)=> b.count - a.count || a.label.length - b.label.length);
+    c.label = c.items[0].label;
+  });
+  return clusters.sort((a,b)=> b.total - a.total);
+}
+
+let clusterBusy = false, clusterPending = false;
+const prevTotals = new Map();
+async function reclusterAndRender(){
+  if (clusterBusy){ clusterPending = true; return; }
+  clusterBusy = true;
+  try{ paintClusters(await buildClusters()); }catch(e){}
+  clusterBusy = false;
+  if (clusterPending){ clusterPending = false; reclusterAndRender(); }
+}
+function renderCloud(){ reclusterAndRender(); }
+
+function paintClusters(clusters){
+  if (!clusters.length){
+    $("cloud").innerHTML = '<div class="cloud-empty">Waiting for the first idea from the phones…</div>';
+    prevTotals.clear(); return;
+  }
+  const max = clusters[0].total;
   const arranged = [];
-  entries.forEach((e,i)=> i % 2 ? arranged.push(e) : arranged.unshift(e));
+  clusters.forEach((c,i)=> i % 2 ? arranged.push(c) : arranged.unshift(c));
   const colors = ["var(--indigo)","var(--cyan-deep)","#6B5CC9","#0E7FA8"];
-  $("cloud").innerHTML = arranged.map(([key,e])=>{
-    const rank = entries.findIndex(x=>x[0]===key);
-    const size = 17 + (e.count/max) * 46;                 // 17px .. 63px
+  $("cloud").innerHTML = arranged.map(c=>{
+    const rank = clusters.indexOf(c);
+    const size = 17 + (c.total/max) * 46;
     const col = rank === 0 ? "var(--gold)" : colors[rank % colors.length];
-    const grow = lastGrown.has(key) ? " grow" : "";
-    return `<span class="${grow.trim()}" style="font-size:clamp(15px,${(size/12).toFixed(2)}vw,${Math.round(size*1.3)}px);color:${col}">${escapeHtml(e.label)}${e.count>1?` <small style="font-size:.55em;color:#AAB4CC">×${e.count}</small>`:""}</span>`;
+    const grow = prevTotals.get(c.repKey) !== c.total ? " grow" : "";
+    const subs = c.items.length > 1
+      ? `<div class="t-subs">${c.items.map(it => escapeHtml(it.label) + (it.count>1 ? " ×"+it.count : "")).join(" · ")}</div>`
+      : "";
+    return `<div class="theme${grow}"><span class="t-main" style="font-size:clamp(15px,${(size/12).toFixed(2)}vw,${Math.round(size*1.3)}px);color:${col}">${escapeHtml(c.label)}${c.total>1 ? ` <small>×${c.total}</small>` : ""}</span>${subs}</div>`;
   }).join("");
+  prevTotals.clear();
+  clusters.forEach(c => prevTotals.set(c.repKey, c.total));
 }
 $("toIdeasBtn").onclick = ()=>{
+  initEmbedder();
   $("finale").classList.add("hidden");
   $("ideasBoard").classList.remove("hidden");
   $("ibTitle").textContent = finWinner != null ? `Use cases for “${INITIATIVES[finWinner]}”` : "Use cases from the room";
@@ -3313,6 +3400,7 @@ $("endBtn").onclick = async ()=>{
 
   finWinner = order[0].i;
   setPhase({ phase:"ideas", winner: finWinner });
+  initEmbedder();   // start downloading the theming model now so the wall opens warm
   const podDelay = { 1:1000, 2:550, 3:150 };   // matches the rise animation
   [1,2,3].forEach(p=>{
     const o = order[p-1];
